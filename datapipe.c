@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
 
   /* change the port in the listener struct to zero, since we will
    * use it for binding to outgoing local sockets in the future. */
-  laddr.sin_port = htons(0);
+  /*laddr.sin_port = htons(0);*/
 
 
   /* fork off into the background. */
@@ -222,11 +222,11 @@ int main(int argc, char *argv[])
           perror("socket");
           closesocket(csock);
         }
-        else if (bind(osock, (struct sockaddr *)&laddr, sizeof(laddr))) {
+        /*else if (bind(osock, (struct sockaddr *)&laddr, sizeof(laddr))) {
           perror("bind");
           closesocket(csock);
           closesocket(osock);
-        }
+        }*/
         else if (connect(osock, (struct sockaddr *)&oaddr, sizeof(oaddr))) {
           perror("connect");
           closesocket(csock);
