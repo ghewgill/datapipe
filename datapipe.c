@@ -87,7 +87,10 @@ int main(int argc, char *argv[])
 { 
   SOCKET lsock;
   char buf[4096];
-  struct sockaddr_in laddr, oaddr;
+  struct sockaddr_storage laddr;
+  size_t laddr_len;
+  struct sockaddr_in oaddr;
+  unsigned short port;
   int i;
   struct client_t clients[MAXCLIENTS];
 
@@ -111,22 +114,32 @@ int main(int argc, char *argv[])
     clients[i].inuse = 0;
 
 
-  /* determine the listener address and port */
-  bzero(&laddr, sizeof(struct sockaddr_in));
-  laddr.sin_family = AF_INET;
-  laddr.sin_port = htons((unsigned short) atol(argv[2]));
-  laddr.sin_addr.s_addr = inet_addr(argv[1]);
-  if (!laddr.sin_port) {
+  /* check for valid port number */
+  port = (unsigned short) atol(argv[2]);
+  if (!port) {
     fprintf(stderr, "invalid listener port\n");
     return 20;
   }
-  if (laddr.sin_addr.s_addr == INADDR_NONE) {
-    struct hostent *n;
-    if ((n = gethostbyname(argv[1])) == NULL) {
-      perror("gethostbyname");
-      return 20;
-    }    
-    bcopy(n->h_addr, (char *) &laddr.sin_addr, n->h_length);
+
+
+  /* determine the listener address and port */
+  bzero(&laddr, sizeof(laddr));
+  laddr_len = sizeof(struct sockaddr_in6);
+  laddr.ss_family = AF_INET6;
+  ((struct sockaddr_in6 *)&laddr)->sin6_port = htons(port);
+  if (inet_pton(AF_INET6, argv[1], &((struct sockaddr_in6 *)&laddr)->sin6_addr) <= 0) {
+    laddr_len = sizeof(struct sockaddr_in);
+    laddr.ss_family = AF_INET;
+    ((struct sockaddr_in *)&laddr)->sin_port = htons(port);
+    ((struct sockaddr_in *)&laddr)->sin_addr.s_addr = inet_addr(argv[1]);
+    if (((struct sockaddr_in *)&laddr)->sin_addr.s_addr == INADDR_NONE) {
+      struct hostent *n;
+      if ((n = gethostbyname(argv[1])) == NULL) {
+        perror("gethostbyname");
+        return 20;
+      }    
+      bcopy(n->h_addr, (char *) &((struct sockaddr_in *)&laddr)->sin_addr, n->h_length);
+    }
   }
 
 
@@ -150,11 +163,11 @@ int main(int argc, char *argv[])
 
 
   /* create the listener socket */
-  if ((lsock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+  if ((lsock = socket(laddr.ss_family, SOCK_STREAM, 0)) == -1) {
     perror("socket");
     return 20;
   }
-  if (bind(lsock, (struct sockaddr *)&laddr, sizeof(laddr))) {
+  if (bind(lsock, (struct sockaddr *)&laddr, laddr_len)) {
     perror("bind");
     return 20;
   }
